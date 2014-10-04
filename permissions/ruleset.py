@@ -77,10 +77,6 @@ class RuleSet(MutableMapping):
 			if not v:
 				del rules[k]
 
-		unsatisfied_perms = set(permissions) ^ set(chain.from_iterable(v.keys() for v in rules.values()))
-		if unsatisfied_perms:
-			raise KeyError("No rules for: {}".format(unsatisfied_perms))
-
 		results = []
 		for i, (rule_type, perms) in enumerate(rules.items()):
 			if not perms:

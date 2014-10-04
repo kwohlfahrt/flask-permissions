@@ -47,6 +47,20 @@ class TestRuleSet(unittest.TestCase):
 		                ,{StaticRule(static_true)
 		                 ,ObjectRule(obj_even)
 		                 ,IterableRule(iter_odd)})
+	
+	def test_missing_rule(self):
+		rs = RuleSet()
+		objects = range(10)
+		for o, (foo,) in rs.with_permissions(objects, ('foo',)):
+			self.assertFalse(foo)
+	
+	def test_some_missing(self):
+		rs = RuleSet()
+		objects = range(10)
+		rs.add_rule(('is', 'even'), obj_even)
+		for o, (foo, bar) in rs.with_permissions(objects, ('foo',), ('is', 'even')):
+			self.assertFalse(foo)
+			self.assertEqual(bar, o % 2 == 0)
 
 class TestPermissions(unittest.TestCase):
 	def test_static(self):
@@ -55,7 +69,7 @@ class TestPermissions(unittest.TestCase):
 		rs.add_rule(('can', 'too'), static_true)
 		objects = range(10)
 		for o, perms in rs.with_permissions(objects, ('can', 'not'), ('can', 'too')):
-			self.assertIn(o, range(10))
+			self.assertIn(o, objects)
 			self.assertFalse(perms[0])
 			self.assertTrue(perms[1])
 	
@@ -94,10 +108,3 @@ class TestPermissions(unittest.TestCase):
 		objects = range(10)
 		for o, (eoo,) in rs.with_permissions(objects, ('even-or-odd',)):
 			self.assertTrue(eoo)
-	
-	def test_missing_rule(self):
-		rs = RuleSet()
-		objects = range(10)
-		with self.assertRaises(KeyError):
-			for o, (foo,) in rs.with_permissions(objects, ('foo',)):
-				pass
