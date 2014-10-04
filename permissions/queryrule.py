@@ -7,6 +7,9 @@ from itertools import tee
 from .defaulttypes import Rule
 
 class QueryRule(Rule):
+	
+	name = 'Query Rule'
+
 	@staticmethod
 	def inspect(sig):
 		return ( len(sig.parameters) == 0

@@ -61,7 +61,8 @@ class RuleSet(MutableMapping):
 		return item
 	
 	def __repr__(self):
-		r = ', '.join(handler for handler in self.handlers)
+		r = ', '.join(getattr(r, 'name', repr(r))
+		                      for r in self.rule_types)
 		return "RuleSet({})".format(r)
 	
 	def with_permissions(self, objects, *permissions):

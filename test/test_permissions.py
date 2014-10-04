@@ -15,6 +15,10 @@ def iter_odd(objects):
 	yield from ((x % 2) != 0 for x in objects)
 
 class TestRuleSet(unittest.TestCase):
+	def test_repr(self):
+		r = repr(RuleSet())
+		self.assertIn('RuleSet', r)
+
 	def test_add_rule(self):
 		rs = RuleSet()
 		rs.add_rule(('some', 'label'), static_true, rule_type=StaticRule)
@@ -41,8 +45,8 @@ class TestRuleSet(unittest.TestCase):
 		rs.add_rule(('some', 'label'), iter_odd)
 		self.assertEqual(set(*rs.rules.values())
 		                ,{StaticRule(static_true)
-						 ,ObjectRule(obj_even)
-						 ,IterableRule(iter_odd)})
+		                 ,ObjectRule(obj_even)
+		                 ,IterableRule(iter_odd)})
 
 class TestPermissions(unittest.TestCase):
 	def test_static(self):
