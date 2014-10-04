@@ -23,6 +23,33 @@ class TestRuleSet(unittest.TestCase):
 		rs = RuleSet()
 		rs.add_rule(('some', 'label'), static_true, rule_type=StaticRule)
 		self.assertEqual(rs['some', 'label'], {StaticRule(static_true)})
+
+	def test_len(self):
+		rs = RuleSet()
+		self.assertEqual(len(rs), 0)
+		rs.add_rule(('some', 'label'), static_true)
+		self.assertEqual(len(rs), 1)
+
+	def test_iter(self):
+		rs = RuleSet()
+		rs.add_rule(('some', 'label'), static_true)
+		
+		for key in iter(rs):
+			pass
+
+	def test_values(self):
+		rs = RuleSet()
+		rs.add_rule(('some', 'label'), static_true)
+		
+		for value in rs.values():
+			pass
+
+	def test_items(self):
+		rs = RuleSet()
+		rs.add_rule(('some', 'label'), static_true)
+		
+		for key, value in rs.items():
+			pass
 	
 	def test_wildcard(self):
 		rs = RuleSet()

@@ -38,11 +38,11 @@ class RuleSet(MutableMapping):
 			self.add_rule(key, rule, rule_type)
 			return rule
 		return decorator
-	
+
 	def __iter__(self):
 		return iter(self.rules)
 
-	def __len__(self, key):
+	def __len__(self):
 		return len(self.rules)
 
 	def __setitem__(self, key, *args):
@@ -55,9 +55,9 @@ class RuleSet(MutableMapping):
 		item = set()
 		acc = []
 		for k in key:
-			item.update(self.rules[tuple(acc + ['*'])])
+			item.update(self.rules.get(tuple(acc + ['*']), set()))
 			acc.append(k)
-		item.update(self.rules[tuple(acc)])
+		item.update(self.rules.get(tuple(acc), set()))
 		return item
 	
 	def __repr__(self):
