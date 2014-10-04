@@ -45,9 +45,12 @@ class RuleSet(MutableMapping):
 	def __len__(self):
 		return len(self.rules)
 
-	def __setitem__(self, key, *args):
-		key = tuple(key)
-		self.rules[key] = set(args)
+	def __setitem__(self, key, value):
+		try:
+			del self[key]
+		except KeyError:
+			pass
+		self.rules[key].add(value)
 
 	def __getitem__(self, key):
 		if '*' in key:
@@ -59,6 +62,10 @@ class RuleSet(MutableMapping):
 			acc.append(k)
 		item.update(self.rules.get(tuple(acc), set()))
 		return item
+
+	def update(self, other):
+		for key, rules in other.items():
+			self.rules[key] |= rules
 	
 	def __repr__(self):
 		r = ', '.join(getattr(r, 'name', repr(r))

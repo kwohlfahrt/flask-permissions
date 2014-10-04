@@ -89,6 +89,30 @@ class TestRuleSet(unittest.TestCase):
 			self.assertFalse(foo)
 			self.assertEqual(bar, o % 2 == 0)
 
+	def test_setitem(self):
+		rs = RuleSet()
+		rs.add_rule(('is', 'even'), obj_even)
+		rs.add_rule(('is', 'even'), static_false)
+		
+		rs['is', 'even'] = ObjectRule(obj_even)
+		self.assertEqual(rs['is', 'even'], {ObjectRule(obj_even)})
+
+	def test_update(self):
+		rs = RuleSet()
+		rs.add_rule(('is', 'even'), obj_even)
+		rs2 = RuleSet()
+		rs2.add_rule(('is', 'even'), static_false)
+		rs2.add_rule(('is', 'odd'), iter_odd)
+		rs2.add_rule(('always', 'true'), static_true)
+		
+		rs.update(rs2)
+		self.assertIn(('is', 'even'), rs)
+		self.assertIn(('always', 'true'), rs)
+		self.assertIn(('is', 'odd'), rs)
+		self.assertEqual(rs['always', 'true'], {StaticRule(static_true)})
+		self.assertEqual(rs['is', 'even'], {ObjectRule(obj_even), StaticRule(static_false)})
+		
+
 class TestPermissions(unittest.TestCase):
 	def test_static(self):
 		rs = RuleSet()
