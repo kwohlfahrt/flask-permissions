@@ -1,6 +1,6 @@
 import unittest
 
-from permissions import RuleSet, StaticRule, IterableRule, ObjectRule
+from permissions import RuleSet, StaticRule, IterableRule, ObjectRule, Rule
 
 def static_true():
 	return True
@@ -111,7 +111,27 @@ class TestRuleSet(unittest.TestCase):
 		self.assertIn(('is', 'odd'), rs)
 		self.assertEqual(rs['always', 'true'], {StaticRule(static_true)})
 		self.assertEqual(rs['is', 'even'], {ObjectRule(obj_even), StaticRule(static_false)})
+
+	def test_order(self):
+		class SequenceRule(Rule):
+			def inspect(sig):
+				return True
+			def apply(objects, permissions):
+				from itertools import repeat
+				objects = list(objects)
+				return repeat(None, len(objects)), repeat((False,) * len(permissions))
+		rs = RuleSet(SequenceRule, ObjectRule)
+
+		rs.add_rule(('foo',), lambda: False, SequenceRule)
+		rs.add_rule(('foo',), obj_even, ObjectRule)
 		
+		with self.assertRaises(TypeError):
+			list(rs.with_permissions(range(10), ('foo',)))
+
+		rs.rule_types = tuple(reversed(rs.rule_types))
+		for i, (o, (foo,)) in enumerate(rs.with_permissions(range(10), ('foo',))):
+			self.assertIs(o, None)
+			self.assertEqual(foo, i % 2 == 0)
 
 class TestPermissions(unittest.TestCase):
 	def test_static(self):

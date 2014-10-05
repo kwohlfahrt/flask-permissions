@@ -75,7 +75,6 @@ class RuleSet(MutableMapping):
 	def with_permissions(self, objects, *permissions):
 		# Sort permissions by type (change internal arrangement to match this?)
 		rules = OrderedDict((rule_type, defaultdict(list)) for rule_type in self.rule_types)
-		perm_idxs = OrderedDict((p, []) for p in permissions)
 
 		for perm in permissions:
 			for r in self[perm]:
@@ -84,6 +83,7 @@ class RuleSet(MutableMapping):
 			if not v:
 				del rules[k]
 
+		perm_idxs = OrderedDict((p, []) for p in permissions)
 		results = []
 		for i, (rule_type, perms) in enumerate(rules.items()):
 			if not perms:
