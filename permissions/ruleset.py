@@ -11,8 +11,8 @@ class RuleSet(MutableMapping):
 	   Respects ``'*'`` as a wildcard in permissions granted.
 	   A rule denoted for multiple permissions will only be evaluated once.'''
 	   
-	def __init__(self, rule_types=default_rule_types):
-		self.rule_types = rule_types
+	def __init__(self, *rule_types):
+		self.rule_types = rule_types or default_rule_types
 		self.rules = defaultdict(set)
 	
 	def __delitem__(self, key):

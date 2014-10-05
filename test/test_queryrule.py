@@ -39,7 +39,7 @@ class Thing(Base):
 
 class TestQueryRuleInference(unittest.TestCase):
 	def test_rule_inference(self):
-		rs = RuleSet(rule_types)
+		rs = RuleSet(*rule_types)
 		rs.add_rule(('foo',), big_thing)
 		self.assertEqual(set(*rs.rules.values())
 		                ,{QueryRule(big_thing)})
@@ -54,7 +54,7 @@ class TestQueryRule(unittest.TestCase):
 		pass
 	
 	def test_simple(self):
-		rs = RuleSet(rule_types)
+		rs = RuleSet(*rule_types)
 		rs.add_rule(('is', 'big'), big_thing)
 
 		objects = [Thing('foo'), Thing('bar'), Thing('big', number=20)]
@@ -66,7 +66,7 @@ class TestQueryRule(unittest.TestCase):
 			self.assertEqual(o.number > 10, big)
 	
 	def test_multiple(self):
-		rs = RuleSet(rule_types)
+		rs = RuleSet(*rule_types)
 		rs.add_rule(('is', 'big'), big_thing)
 		rs.add_rule(('is', 'b'), b_name)
 
@@ -80,7 +80,7 @@ class TestQueryRule(unittest.TestCase):
 			self.assertEqual(o.name[0] == 'b', b)
 	
 	def test_other_types(self):
-		rs = RuleSet(rule_types)
+		rs = RuleSet(*rule_types)
 		rs.add_rule(('is', 'big'), big_thing)
 		rs.add_rule(('is', 'b'), b_name)
 		rs.add_rule(('is', 'f'), f_name)
