@@ -1,3 +1,3 @@
 from .ruleset import RuleSet
-from .defaulttypes import Rule, StaticRule, IterableRule, ObjectRule
-from .queryrule import QueryRule
+from .defaulttypes import RuleTypeSet, StaticRuleSet, IterableRuleSet, ObjectRuleSet
+from .queryrule import QueryRuleSet

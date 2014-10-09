@@ -1,37 +1,69 @@
-from itertools import repeat, tee, chain
-from collections import defaultdict
-
-from .util import invertMapping
+from itertools import repeat, tee, count
+from collections import defaultdict, MutableMapping
 
 from inspect import Signature
 
-class Rule:
-	'''A base class for different rule types.
+class RuleTypeSet(MutableMapping):
+	'''A class containing rules of a single type.
+
+	Rules contained in an instance of this class will be applied together,
+	using the class's :py:meth:`apply` method.
 
 	Sub-classes must define the :py:meth:`inspect` and :py:meth:`apply`
-	methods. They may also define the class attribute ``name`` to provide a
-	human-readable name that will be used when displaying
-	:py:class:`RuleSet` objects.
+	methods.
 	'''
 
-	def __init__(self, rule):
-		self.rule = rule
-	
-	def __hash__(self):
-		return hash(self.rule)
+	def __init__(self):
+		self.rules = defaultdict(set)
+
+	def __len__(self):
+		return len(self.rules)
+
+	def __iter__(self):
+		return iter(self.rules)
+
+	def __delitem__(self, key, value):
+		del self.rules[key]
+
+	def __setitem__(self, key, value):
+		self.rules[key] = {value}
+
+	def __getitem__(self, key):
+		if '*' in key:
+			raise KeyError("Key contains '*'")
+		partial_key = []
+		item = set()
+		for k in key:
+			item |= self.rules.get(tuple(partial_key + ['*']), set())
+			partial_key.append(k)
+		item |= self.rules.get(tuple(key), set())
+		return item
+
+	def update(self, other):
+		for key, rules in other.items():
+			self.rules[key] |= rules
 	
 	def __eq__(self, other):
-		return type(self) == type(other) and self.rule == other.rule
+		return type(self) == type(other) and self.rules == other.rules
 	
 	def __repr__(self):
-		return "{}({})".format(type(self).__name__, self.rule)
-	
-	def __call__(self, *args, **kwargs):
-		return self.rule(*args, **kwargs)
+		return "<{} {}>".format(type(self).__name__, self.rules)
+
+	def by_rule(self, *keys):
+		'''Returns a dictionary of rules for a number of keys, along
+		with which keys each rule satisfies. Useful to prevent
+		executing a rule more often than necessary.
+		'''
+
+		rules = {}
+		for key in keys:
+			for r in self[key]:
+				rules.setdefault(r, set()).add(key)
+		return rules
 
 	@staticmethod
 	def inspect(sig: Signature) -> bool:
-		'''Checks whether a rule fits into the rule type.
+		'''Checks whether a rule fits into this rule type.
 		
 		:param inspect.Signature sig: The signature of the rule.
 		:return: Whether the rule is of this type.
@@ -39,25 +71,20 @@ class Rule:
 		'''
 		raise NotImplementedError
 
-	@staticmethod
-	def apply(objects, rules):
-		'''Apply rules (of this type) to objects.
+	def apply(self, objects, *keys):
+		'''Apply the rules matching ``*keys`` to ``objects``
 
-		:param objects: The objects to apply the rules to. The type of
-				this group depends on what rules of this type
-                                expect.
-		:param rules: A group of rules of this type.
+		:param objects: The objects to apply the rules to.
+		:param keys: They keys to search for in this set.
 		:return: This function returns the objects (though they are not
 			 guaranteed to be unchanged) and an iterable that
-			 yields for each object whether each rule has passed.
+			 yields for each object a tuple contianing  whether
+		         each rule has passed.
 		'''
-
 		raise NotImplementedError
 
-class StaticRule(Rule):
-	'''A rule that is independent of the object it is being applied to.'''
-	
-	name = 'Static Rule'
+class StaticRuleSet(RuleTypeSet):
+	'''A set containing rules independent of the object they are applied to.'''
 
 	@staticmethod
 	def inspect(sig):
@@ -68,21 +95,24 @@ class StaticRule(Rule):
 		       and ( sig.return_annotation == sig.empty
 		           or sig.return_annotation == bool))
 
-	@staticmethod
-	def apply(objects, rules):
-		''':rtype: ``type(objects)``, :py:class:`generator`'''
-		# TODO: Return True and enable short-circuiting in RuleSet
-		return objects, zip(*(repeat(any(r() for r in perm_rules))
-		                      for perm_rules in rules.values()))
+	def apply(self, objects, *keys):
+		'''Returns ``objects`` untouched, and an *infinitely* repeating
+		generator of tuples
+		'''
+		# TODO: Return True and enable short-circuiting in RuleSet?
 
-class IterableRule(Rule):
-	'''A rule that is applied to an iterable of objects.
+		rules = self.by_rule(*keys)
+
+		# set.union fails if passed no arguments, so add set()
+		granted = set.union(set(), *(v for k,v in rules.items() if k()))
+		return objects, repeat(tuple(key in granted for key in keys))
+
+class IterableRuleSet(RuleTypeSet):
+	'''A set for rules applied to an iterable of objects.
 
 	This type makes heavy use of :py:func:`itertools.tee` so the rules
         should consume objects one at a time.
 	'''
-	
-	name = 'Iterable Rule'
 
 	@staticmethod
 	def inspect(sig):
@@ -99,29 +129,18 @@ class IterableRule(Rule):
 			   and ( sig.return_annotation == sig.empty
 			       or sig.return_annotation == iter))
 
-	@staticmethod
-	def apply(objects, rules):
+	def apply(self, objects, *keys):
 		''':rtype: :py:func:`itertools.tee`, :py:class:`generator`'''
 
-		rule_idxs = defaultdict(list)
-		for i, rs in enumerate(rules.values()):
-			for r in rs:
-				rule_idxs[r].append(i)
+		rules = self.by_rule(*keys)
+		objects, *ts = tee(objects, len(rules)+1)
 
-		objects, *ts = tee(objects, len(rule_idxs)+1)
-		ts = {r(t): idxs for (r, idxs), t in zip(rule_idxs.items(), ts)}
+		rules = {r(t): ks for (r, ks), t in zip(rules.items(), ts)}
 
-		def g():
-			while True:
-				trues = set(chain.from_iterable(idxs for t, idxs in ts.items() if next(t)))
-				yield [i in trues for i in range(len(rules))]
+		return objects, ((k in trues for k in keys) for trues in (set.union(set(), *(v for r,v in rules.items() if next(r))) for _ in count()))
 
-		return objects, g()
-
-class ObjectRule(Rule):
-	'''A rule type for rules apply to individual objects.'''
-
-	name = 'Object Rule'
+class ObjectRuleSet(RuleTypeSet):
+	'''A set of rules that are applied to individual objects.'''
 
 	@staticmethod
 	def inspect(sig):
@@ -133,10 +152,10 @@ class ObjectRule(Rule):
 		       and ( sig.return_annotation == sig.empty
 		           or sig.return_annotation == bool ))
 
-	@staticmethod
-	def apply(objects, rules):
+	def apply(self, objects, *keys):
 		''':rtype: :py:func:`itertools.tee`, :py:class:`generator`'''
+
+		rules = self.by_rule(*keys)
 		objects, t = tee(objects, 2)
-		return objects, ([any(r(o) for r in perm_rules)
-		                  for perm_rules in rules.values()]
-		                 for o in t)
+
+		return objects, ((k in trues for k in keys) for trues in (set.union(set(), *(v for r,v in rules.items() if r(o))) for o in t))

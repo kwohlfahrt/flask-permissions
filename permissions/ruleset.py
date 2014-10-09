@@ -1,98 +1,75 @@
 from inspect import signature
-from collections import defaultdict, MutableMapping, OrderedDict
-from itertools import chain
+from collections import OrderedDict
 
-from .defaulttypes import StaticRule, IterableRule, ObjectRule
-default_rule_types = [StaticRule, IterableRule, ObjectRule]
+from .defaulttypes import StaticRuleSet, IterableRuleSet, ObjectRuleSet
+default_rule_types = [StaticRuleSet, IterableRuleSet, ObjectRuleSet]
 
-class RuleSet(MutableMapping):
+class RuleSet:
 	'''A mapping of permissions to the rules which grant the permissions.
 
 	   Respects ``'*'`` as a wildcard in permissions granted.
 	   A rule denoted for multiple permissions will only be evaluated once.'''
 	   
 	def __init__(self, *rule_types):
-		self.rule_types = rule_types or default_rule_types
-		self.rules = defaultdict(set)
+		self.rules = OrderedDict((t, t()) for t in rule_types or default_rule_types)
 	
-	def __delitem__(self, key):
-		del self.rules[key]
+	def __len__(self):
+		return sum(len(rules) for rules in self.rules.values())
+
+	def __contains__(self, key):
+		return any(key in rules for rules in self.rules.values())
+
+	def __getitem__(self, key):
+		return set.union(*(rule_type[key] for rule_type in self.rules.values()))
+
+	def update(self, other):
+		for rule_type, rules in self.rules.items():
+			rules.update(other.rules.get(rule_type, {}))
 	
-	def add_rule(self, key, rule, rule_type=None):
+	def __repr__(self):
+		r = ', '.join(repr(r) for r in self.rules)
+		return "RuleSet({})".format(r)
+
+	def add_rule(self, key, rule, group=None):
 		'''Add ``rule`` for the permission ``key``'''
 		if len(key) < 1:
 			raise ValueError("Label must have at least one element")
-		if rule_type is None:
+		if group is None:
 			sig = signature(rule)
-			for t in self.rule_types:
+			for t in self.rules:
 				if t.inspect(sig):
-					rule_type = t
+					group = t
 					break
 			else:
 				raise ValueError("Rule signature has not been recognized.")
-		self.rules[key].add(rule_type(rule))
+		self.rules[group].rules[key].add(rule)
 	
-	def rule(self, *key, rule_type=None):
+	def rule(self, *key, group=None):
 		'''A decorator applying :py:meth:`permissions.RuleSet.add_rule`'''
 		def decorator(rule):
-			self.add_rule(key, rule, rule_type)
+			self.add_rule(key, rule, group)
 			return rule
 		return decorator
-
-	def __iter__(self):
-		return iter(self.rules)
-
-	def __len__(self):
-		return len(self.rules)
-
-	def __setitem__(self, key, value):
-		try:
-			del self[key]
-		except KeyError:
-			pass
-		self.rules[key].add(value)
-
-	def __getitem__(self, key):
-		if '*' in key:
-			raise KeyError("Cannot match {} (contains '*')".format(key))
-		item = set()
-		acc = []
-		for k in key:
-			item.update(self.rules.get(tuple(acc + ['*']), set()))
-			acc.append(k)
-		item.update(self.rules.get(tuple(acc), set()))
-		return item
-
-	def update(self, other):
-		for key, rules in other.items():
-			self.rules[key] |= rules
-	
-	def __repr__(self):
-		r = ', '.join(getattr(r, 'name', repr(r))
-		                      for r in self.rule_types)
-		return "RuleSet({})".format(r)
 	
 	def with_permissions(self, objects, *permissions):
-		# Sort permissions by type (change internal arrangement to match this?)
-		rules = OrderedDict((rule_type, defaultdict(list)) for rule_type in self.rule_types)
+		'''Tests whether permissions are granted for an iterable of
+		objects
 
-		for perm in permissions:
-			for r in self[perm]:
-				rules[type(r)][perm].append(r)
-		for k, v in rules.items():
-			if not v:
-				del rules[k]
+		:param objects: The objects to test. They may be of any type
+				compatible with the :py:class:`RuleTypeSet`s
+		                contained in this object.
+		:param permissions: The permissions to test for.
+		:returns: An iterable of tuples containing the objects tested
+			  and whether each permission has been granted for the
+		          object.
+		:rtype: ``[(object, (permission, permission, ...))]``
+		'''
 
-		perm_idxs = OrderedDict((p, []) for p in permissions)
 		results = []
-		for i, (rule_type, perms) in enumerate(rules.items()):
-			if not perms:
-				continue
-			objects, result = rule_type.apply(objects, perms)
-			results.append(result)
-			for j, perm in enumerate(perms):
-				perm_idxs[perm].append((i, j))
+		for rule_type_set in self.rules.values():
+			objects, r = rule_type_set.apply(objects, *permissions)
+			results.append(r)
 
+		results = (zip(*result) for result in zip(*results))
 		for o in objects:
-			perms = [next(r) for r in results]
-			yield o, [any(perms[i][j] for i, j in perm_idxs[perm]) for perm in permissions]
+			yield o, [any(r) for r in next(results)]

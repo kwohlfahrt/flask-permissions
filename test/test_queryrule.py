@@ -1,6 +1,7 @@
 import unittest
 
-from permissions import RuleSet, StaticRule, IterableRule, ObjectRule, QueryRule
+from permissions import RuleSet, QueryRuleSet
+from permissions.ruleset import default_rule_types
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, Column, Integer, String
@@ -9,7 +10,8 @@ from sqlalchemy.orm.query import Query
 
 Base = declarative_base()
 
-rule_types = [StaticRule, QueryRule, IterableRule, ObjectRule]
+rule_types = default_rule_types[:]
+rule_types.insert(1, QueryRuleSet)
 
 def big_thing() -> Query:
 	return (Thing.number > 10)
@@ -41,8 +43,7 @@ class TestQueryRuleInference(unittest.TestCase):
 	def test_rule_inference(self):
 		rs = RuleSet(*rule_types)
 		rs.add_rule(('foo',), big_thing)
-		self.assertEqual(set(*rs.rules.values())
-		                ,{QueryRule(big_thing)})
+		self.assertEqual(rs.rules[QueryRuleSet]['foo',], {big_thing})
 
 class TestQueryRule(unittest.TestCase):
 	def setUp(self):
