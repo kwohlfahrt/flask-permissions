@@ -56,7 +56,7 @@ class RuleSet:
 		objects
 
 		:param objects: The objects to test. They may be of any type
-				compatible with the :py:class:`RuleTypeSet`s
+				compatible with the :py:class:`RuleTypeSet`
 		                contained in this object.
 		:param permissions: The permissions to test for.
 		:returns: An iterable of tuples containing the objects tested

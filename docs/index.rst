@@ -56,9 +56,9 @@ First, we set up a ``Thing`` and some rules to apply to it.
    things = [Thing('foo'), Thing('bar', True), Thing('baz')]
 
    rs = RuleSet()
-   rs.add_rule(('thing', 'edit'), lambda object: object.editable, ObjectRule)
+   rs.add_rule(('thing', 'edit'), lambda object: object.editable, ObjectRuleSet)
    
-   @rs.rule('thing', '*', rule_type=StaticRule)
+   @rs.rule('thing', '*', group=StaticRuleSet)
    def sometimes_true():
       return user_is_admin
 
@@ -95,21 +95,25 @@ An admin user on the other hand has more permissions:
 Rule Types
 ----------
 
-Different rule types are defined by created a subclass of :py:class:`Rule`. A
-rule type must define :py:meth:`permissions.Rule.inspect` and :py:meth:`permissions.Rule.apply`. 
+A specific :py:class:`RuleTypeSet` is created for each rule type. This class
+must define :py:meth:`permissions.Rule.inspect` and
+:py:meth:`permissions.Rule.apply`, and is responsible for containing and
+applying rules of a specific type. A set of defaults is included that should
+cover most use-cases that do not involve external libraries. For more details,
+see `API`_.
 
 API
 ===
 
 .. autoclass:: RuleSet
    :members:
-.. autoclass:: Rule
+.. autoclass:: RuleTypeSet
    :members:
-.. autoclass:: StaticRule
+.. autoclass:: StaticRuleSet
    :members:
-.. autoclass:: IterableRule
+.. autoclass:: IterableRuleSet
    :members:
-.. autoclass:: ObjectRule
+.. autoclass:: ObjectRuleSet
    :members:
 
 Contents:
