@@ -17,7 +17,7 @@ setup(
 	author='Kai Wohlfahrt',
 	description='Handling rule-based permissions for objects',
 	long_description=__doc__,
-	py_modules=['permissions'],
+	packages=['permissions'],
 	platforms='any',
 	install_requires=[],
 	test_suite='test',
